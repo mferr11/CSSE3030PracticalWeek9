@@ -10,9 +10,10 @@
   <packaging>jar</packaging>
 
   <properties>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.source>8</maven.compiler.source>
+    <maven.compiler.target>8</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <ekstazi.securityManagerArg></ekstazi.securityManagerArg>
   </properties>
 
   <dependencies>
@@ -41,11 +42,11 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.22.2</version>
         <configuration>
-          <!-- Same flags as .mvn/jvm.config, applied to the forked test JVM too:
-               Ekstazi's javaagent needs allowAttachSelf on JDK 11+, and JDK 21
-               additionally requires re-enabling the (removed-by-default) security
-               manager for its instrumentation to work. -->
-          <argLine>-Djdk.attach.allowAttachSelf=true -Djava.security.manager=allow</argLine>
+          <!-- Same allowAttachSelf flag as .mvn/jvm.config, applied to the forked test
+               JVM too: Ekstazi's javaagent needs it on JDK 11+. The security manager
+               flag is injected by the jdk18-plus profile below, only on JDK 17+, since
+               it crashes JVM startup on 8/11 (see ekstazi.securityManagerArg above). -->
+          <argLine>-Djdk.attach.allowAttachSelf=true ${ekstazi.securityManagerArg}</argLine>
         </configuration>
       </plugin>
       <plugin>
@@ -68,4 +69,19 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Sets java.security.manager=allow only on JDK 17+, where the value is
+         recognized (JEP 411). On 8/11 the string "allow" is instead treated as
+         a classname to load as the SecurityManager, and the JVM fails to boot. -->
+    <profile>
+      <id>jdk17-plus-security-manager</id>
+      <activation>
+        <jdk>[17,)</jdk>
+      </activation>
+      <properties>
+        <ekstazi.securityManagerArg>-Djava.security.manager=allow</ekstazi.securityManagerArg>
+      </properties>
+    </profile>
+  </profiles>
 </project>
